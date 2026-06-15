@@ -8,13 +8,20 @@ import {
   resetStory,
   MAX_PARTICIPANTS,
   MAX_CHARS_PER_STORY
-} from './storage.js';
+} from './storyService.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+
+function handleServiceResult(res, result) {
+  if (!result.success) {
+    return res.status(result.code || 400).json({ error: result.error });
+  }
+  res.json(result.story);
+}
 
 app.get('/api/config', (_req, res) => {
   res.json({
@@ -23,17 +30,15 @@ app.get('/api/config', (_req, res) => {
   });
 });
 
-app.get('/api/stories', (_req, res) => {
+app.get('/api/stories', (_req, res, next) => {
   try {
-    const stories = getAllStories();
-    res.json(stories);
+    res.json(getAllStories());
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '获取故事列表失败' });
+    next(err);
   }
 });
 
-app.get('/api/stories/:id', (req, res) => {
+app.get('/api/stories/:id', (req, res, next) => {
   try {
     const story = getStoryById(req.params.id);
     if (!story) {
@@ -41,79 +46,49 @@ app.get('/api/stories/:id', (req, res) => {
     }
     res.json(story);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '获取故事详情失败' });
+    next(err);
   }
 });
 
-app.post('/api/stories', (req, res) => {
+app.post('/api/stories', (req, res, next) => {
   try {
-    const { title, content, author } = req.body || {};
-    if (!title || !title.trim()) {
-      return res.status(400).json({ error: '故事标题不能为空' });
-    }
-    if (!content || !content.trim()) {
-      return res.status(400).json({ error: '开篇内容不能为空' });
-    }
-    if (!author || !author.trim()) {
-      return res.status(400).json({ error: '作者名称不能为空' });
-    }
-    if (content.length > MAX_CHARS_PER_STORY) {
-      return res.status(400).json({ error: `开篇内容不能超过 ${MAX_CHARS_PER_STORY} 字` });
-    }
-    const story = createStory({
-      title: title.trim(),
-      content: content.trim(),
-      author: author.trim()
-    });
-    res.status(201).json(story);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '创建故事失败' });
-  }
-});
-
-app.post('/api/stories/:id/entries', (req, res) => {
-  try {
-    const { content, author } = req.body || {};
-    if (!content || !content.trim()) {
-      return res.status(400).json({ error: '续写内容不能为空' });
-    }
-    if (!author || !author.trim()) {
-      return res.status(400).json({ error: '作者名称不能为空' });
-    }
-    const result = addEntry(req.params.id, {
-      content: content.trim(),
-      author: author.trim()
-    });
+    const result = createStory(req.body);
     if (!result.success) {
       return res.status(result.code || 400).json({ error: result.error });
     }
-    res.json(result.story);
+    res.status(201).json(result.story);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '提交续写失败' });
+    next(err);
   }
 });
 
-app.post('/api/admin/stories/:id/reset', (req, res) => {
+app.post('/api/stories/:id/entries', (req, res, next) => {
+  try {
+    handleServiceResult(res, addEntry(req.params.id, req.body));
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/api/admin/stories/:id/reset', (req, res, next) => {
   try {
     const result = resetStory(req.params.id);
     if (!result.success) {
       return res.status(result.code || 400).json({ error: result.error });
     }
-    res.json({
-      message: '故事已重置',
-      story: result.story
-    });
+    res.json({ message: '故事已重置', story: result.story });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '重置故事失败' });
+    next(err);
   }
 });
 
 app.use((_req, res) => {
   res.status(404).json({ error: '接口不存在' });
+});
+
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ error: '服务器内部错误' });
 });
 
 app.listen(PORT, () => {

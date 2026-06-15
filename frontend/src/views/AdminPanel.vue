@@ -45,17 +45,17 @@
                   </td>
                   <td class="num-col">
                     <span
-                      :class="['num-val', s.participantCount >= 10 ? 'num-warn' : '']"
+                      :class="['num-val', s.participantCount >= maxParticipants ? 'num-warn' : '']"
                     >
-                      {{ s.participantCount }}/10
+                      {{ s.participantCount }}/{{ maxParticipants }}
                     </span>
                   </td>
                   <td class="num-col">{{ s.entryCount }}</td>
                   <td class="num-col">
                     <span
-                      :class="['num-val', s.totalChars >= 5000 ? 'num-warn' : '']"
+                      :class="['num-val', s.totalChars >= maxCharsPerStory ? 'num-warn' : '']"
                     >
-                      {{ s.totalChars }}/5000
+                      {{ s.totalChars }}/{{ maxCharsPerStory }}
                     </span>
                   </td>
                   <td class="status-col">
@@ -145,13 +145,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api.js'
 import { formatTime } from '../utils.js'
 
 const router = useRouter()
 const stories = ref([])
+const config = ref(null)
 const loading = ref(false)
 const resetting = ref(null)
 const resetError = ref('')
@@ -159,6 +160,9 @@ const confirmVisible = ref(false)
 const targetStory = ref(null)
 
 const toast = ref({ show: false, message: '', type: 'success' })
+
+const maxParticipants = computed(() => config.value?.maxParticipants || 10)
+const maxCharsPerStory = computed(() => config.value?.maxCharsPerStory || 5000)
 
 function showToast(message, type = 'success') {
   toast.value = { show: true, message, type }
@@ -168,7 +172,9 @@ function showToast(message, type = 'success') {
 async function loadStories() {
   loading.value = true
   try {
-    stories.value = await api.getStories()
+    const [list, cfg] = await Promise.all([api.getStories(), api.getConfig()])
+    stories.value = list
+    config.value = cfg
   } catch (e) {
     showToast('加载失败：' + e.message, 'error')
   } finally {

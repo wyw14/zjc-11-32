@@ -73,12 +73,11 @@
                 <div
                   class="progress-bar"
                   :style="{
-                    width: Math.min(
-                      Math.max(
-                        (s.participantCount / (config?.maxParticipants || 10)) * 100,
-                        (s.totalChars / (config?.maxCharsPerStory || 5000)) * 100
-                      ),
-                      100
+                    width: calcProgressPct(
+                      s.participantCount,
+                      config?.maxParticipants || 10,
+                      s.totalChars,
+                      config?.maxCharsPerStory || 5000
                     ) + '%'
                   }"
                 ></div>
@@ -138,7 +137,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api.js'
-import { formatTime } from '../utils.js'
+import { formatTime, calcProgressPct } from '../utils.js'
 
 const router = useRouter()
 const stories = ref([])

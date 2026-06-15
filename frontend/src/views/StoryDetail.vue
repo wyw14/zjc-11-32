@@ -157,7 +157,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api.js'
-import { formatTime } from '../utils.js'
+import { formatTime, calcProgressPct, calcRemainingChars, pickAvatarColor } from '../utils.js'
 
 const props = defineProps({
   id: { type: String, required: true }
@@ -173,16 +173,17 @@ const chatListRef = ref(null)
 
 const progressPct = computed(() => {
   if (!story.value) return 0
-  const pct = Math.max(
-    (story.value.participantCount / story.value.maxParticipants) * 100,
-    (story.value.totalChars / story.value.maxChars) * 100
+  return calcProgressPct(
+    story.value.participantCount,
+    story.value.maxParticipants,
+    story.value.totalChars,
+    story.value.maxChars
   )
-  return Math.min(Math.round(pct), 100)
 })
 
 const remainingChars = computed(() => {
   if (!story.value) return 0
-  return Math.max(0, story.value.maxChars - story.value.totalChars)
+  return calcRemainingChars(story.value.totalChars, story.value.maxChars)
 })
 
 const maxAllowedChars = computed(() => Math.max(1, remainingChars.value))
@@ -195,17 +196,8 @@ const canSubmit = computed(() => {
   )
 })
 
-const avatarColors = [
-  '#6366f1', '#ec4899', '#10b981', '#f59e0b', '#3b82f6',
-  '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#06b6d4'
-]
-
 function avatarColor(name) {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) >>> 0
-  }
-  return avatarColors[hash % avatarColors.length]
+  return pickAvatarColor(name)
 }
 
 async function loadStory() {
